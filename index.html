@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NanoShield — Local-First Hybrid AI PII Redactor</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236366f1'><path d='M12 2L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-3zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-2.33v8.02z'/></svg>">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="app-header">
+    <div class="brand-group">
+      <div class="brand-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+      </div>
+      <div>
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <h1 class="brand-title">NanoShield</h1>
+          <span class="brand-tag">Hybrid AI</span>
+        </div>
+        <p style="font-size:0.75rem; color:var(--text-dim);">Local-First PII Sanitization via Firebase AI Logic & Gemini Nano</p>
+      </div>
+    </div>
+
+    <div class="header-status">
+      <div class="status-pill" id="pill-appcheck" title="Firebase App Check attestation">
+        <span class="status-dot" id="dot-appcheck"></span>
+        <span>App Check: <strong id="lbl-appcheck">Checking...</strong></span>
+      </div>
+      <div class="status-pill" id="pill-device" title="Local Chrome Prompt API (Gemini Nano)">
+        <span class="status-dot" id="dot-device"></span>
+        <span>On-Device Nano: <strong id="lbl-device">Checking...</strong></span>
+      </div>
+      <button class="btn-header" id="btn-open-audit">Audit History</button>
+      <button class="btn-header" id="btn-open-info">How It Works</button>
+    </div>
+  </header>
+
+  <main class="app-container">
+    <!-- Control Bar -->
+    <section class="control-bar">
+      <div class="controls-left">
+        <div class="control-item">
+          <label for="sel-preset">Preset Test Data:</label>
+          <select id="sel-preset" class="select-control">
+            <option value="">-- Choose Sample Payload --</option>
+            <option value="support">Customer Support Ticket (Fintech/Cards)</option>
+            <option value="medical">Clinical Patient Intake (HIPAA/SSN)</option>
+            <option value="devops">DevOps Incident (Cloud Keys/Tokens)</option>
+            <option value="legal">Corporate NDA (Financials/Legal)</option>
+          </select>
+        </div>
+
+        <div class="control-item">
+          <label for="sel-style">Mask Style:</label>
+          <select id="sel-style" class="select-control">
+            <option value="TAG" selected>Structured Tag: [REDACTED_TYPE_N]</option>
+            <option value="BRACKET">Category: &lt;PERSON&gt;, &lt;CARD&gt;</option>
+            <option value="ASTERISK">Partial Mask: J*** D**, 4***-****</option>
+            <option value="BLACKOUT">Redaction Bar: ████████</option>
+            <option value="SYNTHETIC">Synthetic Pseudonym (Reversible)</option>
+          </select>
+        </div>
+
+        <div class="control-item">
+          <label for="sel-mode">Inference Mode:</label>
+          <select id="sel-mode" class="select-control">
+            <option value="PREFER_ON_DEVICE" selected>Prefer On-Device (Gemini Nano &rarr; Cloud Fallback)</option>
+            <option value="ONLY_ON_DEVICE">Force On-Device (Gemini Nano Only)</option>
+            <option value="PREFER_IN_CLOUD">Prefer Cloud (Gemini 3.5 Flash Lite)</option>
+            <option value="ONLY_IN_CLOUD">Force Cloud (Gemini 3.5 Flash Lite)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="controls-right">
+        <button id="btn-clear" class="btn-secondary">Clear</button>
+        <button id="btn-sanitize" class="btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          Sanitize with Hybrid AI
+        </button>
+      </div>
+    </section>
+
+    <!-- Workspace Grid -->
+    <section class="workspace-grid">
+      <!-- Input Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            Raw Unsanitized Input
+          </div>
+          <div class="panel-actions">
+            <label class="btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.5rem; cursor:pointer;" title="Upload or drop screenshot">
+              <span>Drop / Upload Image</span>
+              <input type="file" id="file-input" accept="image/*" style="display:none;">
+            </label>
+          </div>
+        </div>
+        <div class="panel-content">
+          <textarea id="txt-input" class="editor-textarea mono" placeholder="Paste sensitive text, emails, chat transcripts, customer tickets, logs, or drop a document/screenshot here..."></textarea>
+          <div id="image-preview-container" style="display:none; padding:1rem; overflow:auto; text-align:center;">
+            <canvas id="image-canvas" style="max-width:100%; border-radius:8px; border:1px solid var(--border-bright);"></canvas>
+            <div style="margin-top:0.75rem;">
+              <button id="btn-burn-redactions" class="btn-secondary" style="display:inline-flex;">Burn Visual Redaction Boxes</button>
+              <button id="btn-download-img" class="btn-secondary" style="display:inline-flex;">Download Sanitized Image</button>
+              <button id="btn-close-img" class="btn-secondary" style="display:inline-flex;">Switch Back to Text</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel-footer">
+          <span id="lbl-char-count">0 characters &bull; 0 words</span>
+          <span style="font-size:0.72rem; color:var(--text-dim);">Protected by Client Sandbox</span>
+        </div>
+      </div>
+
+      <!-- Output Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            Sanitized Output &amp; Diff
+            <span id="badge-source" class="badge-source" style="display:none;"></span>
+          </div>
+          <div class="panel-actions">
+            <button id="btn-toggle-view" class="btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.6rem;">Toggle Diff View</button>
+            <button id="btn-unmask" class="btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.6rem;" title="Reverse token mapping locally">De-Anonymize</button>
+          </div>
+        </div>
+        <div class="panel-content">
+          <div id="diff-container" class="diff-viewport mono">
+            <span style="color:var(--text-dim);">Click <strong>Sanitize with Hybrid AI</strong> or select a preset to analyze sensitive entities.</span>
+          </div>
+          <textarea id="txt-output" class="editor-textarea mono" style="display:none;" readonly></textarea>
+        </div>
+        <div class="panel-footer">
+          <div style="display:flex; align-items:center; gap:0.6rem;">
+            <button id="btn-copy-clean" class="btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.55rem;">Copy Clean Text</button>
+            <button id="btn-export-vault" class="btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.55rem;">Export Token Vault</button>
+            <button id="btn-save-audit" class="btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.55rem;">Save Audit Proof</button>
+          </div>
+          <span id="lbl-latency" style="font-size:0.75rem;">Latency: --</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stats Ribbon -->
+    <section class="stats-ribbon">
+      <div class="stat-card">
+        <div class="stat-label">Total Redactions</div>
+        <div class="stat-value" id="stat-total">0</div>
+        <div class="stat-sub" id="stat-latency-sub">Latency: --</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Active Entity Types</div>
+        <div class="stat-value" id="stat-categories" style="font-size:0.95rem; flex-wrap:wrap; gap:0.3rem;">
+          <span class="entity-pill">None</span>
+        </div>
+        <div class="stat-sub">AI &amp; Heuristic Coverage</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">SHA-256 Document Hash</div>
+        <div class="stat-value mono" id="stat-hash" style="font-size:0.75rem; word-break:break-all;">--</div>
+        <div class="stat-sub">Zero-Knowledge Verification</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Remote Config Policy</div>
+        <div class="stat-value" id="stat-rc-status" style="font-size:0.95rem;">Active</div>
+        <div class="stat-sub" id="stat-rc-detail">Strict Mode: Enforced</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- How It Works Modal -->
+  <div class="modal-overlay" id="modal-info">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 style="display:flex; align-items:center; gap:0.5rem;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+          How NanoShield Works &bull; Hybrid AI Architecture
+        </h3>
+        <button id="btn-close-info" class="btn-secondary">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p><strong>NanoShield</strong> protects privacy before sensitive prompts or enterprise documents reach third-party LLMs and cloud APIs.</p>
+        
+        <h4>1. Firebase AI Logic Hybrid Inference</h4>
+        <p>NanoShield utilizes Google's official <code>firebase/ai</code> SDK with <code>InferenceMode.PREFER_ON_DEVICE</code>:</p>
+        <ul>
+          <li><strong>On-Device (Gemini Nano):</strong> When running in compatible Chrome desktop browsers with Prompt API enabled, entity detection and redaction execute 100% locally on your machine's NPU/GPU. Sensitive PII never transmits over the network.</li>
+          <li><strong>Cloud Fallback (Gemini 3.8 Flash):</strong> If Gemini Nano is unavailable or the payload exceeds on-device limits, the SDK transparently routes to Gemini 3.8 Flash through Firebase AI Logic.</li>
+        </ul>
+
+        <h4>2. Firebase App Check Protection</h4>
+        <p>All cloud AI requests are cryptographically attested via <strong>Firebase App Check</strong>. This guarantees that only genuine NanoShield client sessions can consume backend inference quotas, preventing unauthorized API scraping and quota exhaustion.</p>
+
+        <h4>3. Firebase Remote Config Policies</h4>
+        <p>Security policies (strictness mode, enabled entity types, confidence thresholds, and hybrid routing rules) are pulled dynamically from <strong>Firebase Remote Config</strong>, allowing administrators to update compliance posture without redeploying code.</p>
+
+        <h4>4. Zero-Knowledge Cloud Firestore Audit Log</h4>
+        <p>NanoShield logs redaction session telemetry to <strong>Cloud Firestore</strong> (<code>users/{uid}/redactions</code>) with offline-first caching via <code>persistentLocalCache</code>. Crucially, <em>no sensitive text or PII is ever written to Firestore</em> &mdash; only cryptographic SHA-256 integrity proofs, entity counts, mask styles, and latency metrics are saved.</p>
+
+        <h4>5. Reversible Token Vault</h4>
+        <p>NanoShield stores an isolated in-memory token map (e.g. <code>[REDACTED_NAME_1] &harr; "John Doe"</code>) in your local browser sandbox. Once your external LLM replies, click <strong>De-Anonymize</strong> to swap real names back into place locally.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-close-info-footer" class="btn-primary">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audit History Modal -->
+  <div class="modal-overlay" id="modal-audit">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 style="display:flex; align-items:center; gap:0.5rem;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+          Firestore Audit History (Zero PII Stored)
+        </h3>
+        <button id="btn-close-audit" class="btn-secondary">&times;</button>
+      </div>
+      <div class="modal-body" id="audit-list">
+        <p style="color:var(--text-dim);">Loading audit records from Firestore...</p>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-refresh-audit" class="btn-secondary">Refresh</button>
+        <button id="btn-close-audit-footer" class="btn-primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-notice" id="toast">
+    <span id="toast-text">Notice</span>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

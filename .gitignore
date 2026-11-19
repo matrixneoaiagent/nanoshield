@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env.local
+.env
+.firebase/
+*.log
+demo_video/
+*.webm
+*.mp4
+node_modules
+node_modules/
