@@ -3,6 +3,7 @@
 Local-first PII redaction with **Firebase AI Logic** — on-device Gemini Nano when the browser supports it, with an honest cloud fallback to Gemini.
 
 - **Live demo:** https://nanoshield-2026.web.app
+- **Demo video:** https://youtu.be/t1ZOTRXctbw
 - **Built for:** [#BuildHybridAI 2026](https://firebasehybridaihackathon.devpost.com/)
 - **License:** Apache-2.0
 
